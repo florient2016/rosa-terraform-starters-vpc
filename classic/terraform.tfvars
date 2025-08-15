@@ -1,10 +1,10 @@
 # Example values — replace with yours
-name              = "apke"
-cluster_name      = "apke-classic-euw1"
+name              = "itsolution"
+cluster_name      = "itssolutions-classic-euw1"
 aws_region        = "eu-west-1"
 aws_azs           = ["eu-west-1a","eu-west-1b","eu-west-1c"]
-openshift_version = "4.14.24"
-admin_password    = "ReplaceWithA14+CharsPass!"
+openshift_version = "4.16"
+admin_password    = "WelcomeToOpenshift@2025"
 
 # VPC options:
 create_vpc = true

@@ -32,8 +32,12 @@ locals {
   subnet_ids = var.create_vpc ? module.vpc[0].private_subnets : var.existing_subnet_ids
 }
 
-module "rosa_classic" {
+#module "rosa_classic" {
+#  source  = "terraform-redhat/rosa-classic/rhcs"
+module "rosa-classic" {
   source  = "terraform-redhat/rosa-classic/rhcs"
+  version = "1.6.2"
+  # insert the 2 required variables here
 
   cluster_name      = var.cluster_name
   openshift_version = var.openshift_version

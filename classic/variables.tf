@@ -1,66 +1,67 @@
-variable "cluster_name" {
+variable "region" {
+  description = "AWS region"
   type        = string
-  description = "Name of the ROSA HCP cluster"
-  
-  validation {
-    condition     = can(regex("^[a-z][a-z0-9-]{0,14}[a-z0-9]$", var.cluster_name))
-    error_message = "Cluster name must start with a letter, contain only lowercase letters, numbers, and hyphens, and be 2-15 characters long."
-  }
+  default     = "us-east-1"
+}
+
+variable "cluster_name" {
+  description = "Name of the ROSA cluster"
+  type        = string
 }
 
 variable "openshift_version" {
+  description = "OpenShift version"
   type        = string
-  description = "OpenShift version to use for the cluster"
-  default     = "4.14.15"
-}
-
-variable "region" {
-  type        = string
-  description = "AWS region where the cluster will be created"
-  default     = "us-west-2"
+  default     = "4.14.6"
 }
 
 variable "multi_az" {
-  type        = bool
   description = "Deploy cluster across multiple availability zones"
+  type        = bool
   default     = false
 }
 
-variable "public" {
+variable "create_vpc" {
+  description = "Create a new VPC for the cluster"
   type        = bool
-  description = "Create a public cluster (API and ingress endpoints accessible from the internet)"
   default     = true
 }
 
-variable "replicas" {
-  type        = number
-  description = "Number of worker nodes per availability zone"
-  default     = 2
-  
-  validation {
-    condition     = var.replicas >= 2
-    error_message = "ROSA HCP clusters require at least 2 worker nodes."
-  }
+variable "aws_subnet_ids" {
+  description = "List of AWS subnet IDs (required when create_vpc = false)"
+  type        = list(string)
+  default     = []
 }
 
 variable "machine_type" {
+  description = "EC2 instance type for worker nodes"
   type        = string
-  description = "Instance type for worker nodes"
   default     = "m5.xlarge"
 }
 
-variable "create_vpc" {
-  type        = bool
-  description = "Create a new VPC for the cluster"
-  default     = true
+variable "replicas" {
+  description = "Number of worker nodes"
+  type        = number
+  default     = 2
+}
+
+variable "destroy_timeout" {
+  description = "Timeout for cluster deletion"
+  type        = number
+  default     = 60
+}
+
+variable "upgrade_acknowledgements_for" {
+  description = "Acknowledge upgrade for OpenShift version"
+  type        = string
+  default     = ""
 }
 
 variable "tags" {
+  description = "Tags to apply to resources"
   type        = map(string)
-  description = "AWS resource tags to apply to all resources"
   default = {
     Environment = "dev"
     Project     = "rosa-hcp"
-    ManagedBy   = "terraform"
   }
 }

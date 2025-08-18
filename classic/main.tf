@@ -1,44 +1,30 @@
 module "rosa_hcp" {
-  source = "github.com/terraform-redhat/terraform-rhcs-rosa-hcp?ref=v1.6.2"
+  source = "terraform-redhat/rosa-hcp/rhcs"
+  version = "~> 1.6.0"
+
+  # Required arguments
+  cluster_name           = var.cluster_name
+  openshift_version      = var.openshift_version
   
-  cluster_name          = var.cluster_name
-  openshift_version     = var.openshift_version
-  region                = var.region
-  multi_az              = var.multi_az
-  public                = var.public
-  replicas              = var.replicas
-  machine_type          = var.machine_type
-  create_vpc            = var.create_vpc
-  create_account_roles  = true
-  create_operator_roles = true
-  create_oidc           = true
-  create_admin_user     = false
-  tags                  = var.tags
-}
-
-# Output cluster information
-output "cluster_id" {
-  description = "ID of the created ROSA HCP cluster"
-  value       = module.rosa_hcp.cluster_id
-}
-
-output "cluster_api_url" {
-  description = "URL of the API server"
-  value       = module.rosa_hcp.cluster_api_url
-}
-
-output "cluster_console_url" {
-  description = "URL of the OpenShift web console"
-  value       = module.rosa_hcp.cluster_console_url
-}
-
-output "cluster_domain" {
-  description = "DNS domain of cluster"
-  value       = module.rosa_hcp.cluster_domain
-}
-
-output "oidc_endpoint_url" {
-  description = "OIDC endpoint URL"
-  value       = module.rosa_hcp.oidc_endpoint_url
-  sensitive   = false
+  # AWS Configuration
+  aws_region            = var.region
+  aws_availability_zones = var.multi_az ? ["${var.region}a", "${var.region}b", "${var.region}c"] : ["${var.region}a"]
+  
+  # Network Configuration
+  create_vpc = var.create_vpc
+  
+  # When create_vpc = true, these are created automatically
+  # When create_vpc = false, you need to provide existing subnet IDs
+  aws_subnet_ids = var.create_vpc ? [] : var.aws_subnet_ids
+  
+  # Machine Configuration
+  compute_machine_type = var.machine_type
+  replicas            = var.replicas
+  
+  # Cluster Configuration
+  destroy_timeout     = var.destroy_timeout
+  upgrade_acknowledgements_for = var.upgrade_acknowledgements_for
+  
+  # Labels and tags
+  tags = var.tags
 }

@@ -1,22 +1,25 @@
-# Basic cluster configuration
-cluster_name      = "my-rosa-hcp-cluster"
-openshift_version = "4.14.15"
-region           = "us-east-1"
+# Basic Configuration
+region       = "us-east-1"
+cluster_name = "my-rosa-hcp-cluster"
 
-# Cluster topology
-multi_az    = false
-public      = true
-replicas    = 2
+# Cluster Configuration
+openshift_version = "4.14.6"
+multi_az         = false
+create_vpc       = true
+
+# If create_vpc = false, uncomment and provide existing subnet IDs:
+# aws_subnet_ids = ["subnet-12345", "subnet-67890"]
+
+# Compute Configuration
 machine_type = "m5.xlarge"
+replicas     = 2
 
-# Infrastructure
-create_vpc = true
+# Additional Configuration
+destroy_timeout = 60
 
 # Tags
 tags = {
-  Environment = "its-development"
-  Project     = "its-rosa-hcp-demo"
-  Owner       = "its-platform-team"
-  ManagedBy   = "its-terraform"
-  CostCenter  = "its-engineering"
+  Environment = "development"
+  Project     = "rosa-hcp-demo"
+  Owner       = "terraform"
 }

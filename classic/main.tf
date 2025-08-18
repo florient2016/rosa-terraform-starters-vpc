@@ -1,5 +1,5 @@
-module "rosa_classic" {
-  source = "github.com/terraform-redhat/terraform-rhcs-rosa-classic"
+module "rosa_hcp" {
+  source = "github.com/terraform-redhat/terraform-rhcs-rosa-hcp?ref=v1.6.2"
   
   cluster_name          = var.cluster_name
   openshift_version     = var.openshift_version
@@ -18,21 +18,27 @@ module "rosa_classic" {
 
 # Output cluster information
 output "cluster_id" {
-  description = "ID of the created ROSA cluster"
-  value       = module.rosa_classic.cluster_id
+  description = "ID of the created ROSA HCP cluster"
+  value       = module.rosa_hcp.cluster_id
 }
 
 output "cluster_api_url" {
   description = "URL of the API server"
-  value       = module.rosa_classic.cluster_api_url
+  value       = module.rosa_hcp.cluster_api_url
 }
 
 output "cluster_console_url" {
   description = "URL of the OpenShift web console"
-  value       = module.rosa_classic.cluster_console_url
+  value       = module.rosa_hcp.cluster_console_url
 }
 
 output "cluster_domain" {
   description = "DNS domain of cluster"
-  value       = module.rosa_classic.cluster_domain
+  value       = module.rosa_hcp.cluster_domain
+}
+
+output "oidc_endpoint_url" {
+  description = "OIDC endpoint URL"
+  value       = module.rosa_hcp.oidc_endpoint_url
+  sensitive   = false
 }

@@ -6,25 +6,25 @@ output "cluster_id" {
   value       = module.hcp.cluster_id
 }
 
-output "cluster_name" {
-  description = "Name of the cluster"
-  value       = module.hcp.cluster_name
-}
+#output "cluster_name" {
+#  description = "Name of the cluster"
+#  value       = module.hcp.cluster_name
+#}
 
-output "console_url" {
-  description = "URL of the OpenShift web console"
-  value       = module.hcp.console_url
-}
+#output "console_url" {
+#  description = "URL of the OpenShift web console"
+#  value       = module.hcp.console_url
+#}
 
-output "api_url" {
-  description = "URL of the API server"
-  value       = module.hcp.api_url
-}
+#output "api_url" {
+#  description = "URL of the API server"
+#  value       = module.hcp.api_url
+#}
 
-output "domain" {
-  description = "DNS domain of cluster"
-  value       = module.hcp.domain
-}
+#output "domain" {
+#  description = "DNS domain of cluster"
+#  value       = module.hcp.domain
+#}
 
 ############################
 # VPC Outputs

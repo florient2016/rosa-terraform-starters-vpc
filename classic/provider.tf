@@ -1,23 +1,24 @@
 terraform {
-  required_version = ">= 1.4.0"
-
+  required_version = ">= 1.0"
   required_providers {
     aws = {
       source  = "hashicorp/aws"
-      version = ">= 4.0"
+      version = ">= 4.20.0"
     }
     rhcs = {
+      version = ">= 1.1.0"
       source  = "terraform-redhat/rhcs"
-      version = ">= 1.6.0"
     }
   }
 }
 
-# AWS region is taken from the 'region' variable (can also be set via AWS_REGION env).
 provider "aws" {
   region = var.region
+  default_tags {
+    tags = var.tags
+  }
 }
 
-# RHCS provider reads the token only from the RHCS_TOKEN environment variable.
-# Do not pass tokens via variables to avoid secrets in code/state.
-provider "rhcs" {}
+provider "rhcs" {
+  # Uses RHCS_TOKEN environment variable
+}

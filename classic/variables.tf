@@ -1,67 +1,71 @@
-variable "region" {
-  description = "AWS region"
-  type        = string
-  default     = "us-east-1"
-}
-
 variable "cluster_name" {
   description = "Name of the ROSA cluster"
   type        = string
 }
 
 variable "openshift_version" {
-  description = "OpenShift version"
+  description = "Version of OpenShift to use (e.g., 4.16.13)"
   type        = string
-  default     = "4.14.6"
 }
 
-variable "multi_az" {
-  description = "Deploy cluster across multiple availability zones"
+variable "account_role_prefix" {
+  description = "Prefix for account roles"
+  type        = string
+}
+
+variable "operator_role_prefix" {
+  description = "Prefix for operator roles"
+  type        = string
+}
+
+variable "aws_region" {
+  description = "AWS region for the cluster"
+  type        = string
+}
+
+variable "availability_zones" {
+  description = "List of AWS availability zones (e.g., ['us-east-1a']) - determines number of subnets"
+  type        = list(string)
+}
+
+variable "private" {
+  description = "Whether the cluster is private (true) or public (false)"
   type        = bool
   default     = false
 }
 
-variable "create_vpc" {
-  description = "Create a new VPC for the cluster"
+variable "multi_az" {
+  description = "Whether the cluster is multi-AZ"
   type        = bool
-  default     = true
+  default     = false
 }
 
-variable "aws_subnet_ids" {
-  description = "List of AWS subnet IDs (required when create_vpc = false)"
+variable "vpc_cidr" {
+  description = "CIDR block for the VPC"
+  type        = string
+  default     = "10.0.0.0/16"
+}
+
+variable "private_subnet_cidrs" {
+  description = "CIDR blocks for private subnets (one per AZ)"
   type        = list(string)
-  default     = []
+  default     = ["10.0.1.0/24", "10.0.2.0/24", "10.0.3.0/24"]  # Adjust based on number of AZs
 }
 
-variable "machine_type" {
-  description = "EC2 instance type for worker nodes"
+variable "public_subnet_cidrs" {
+  description = "CIDR blocks for public subnets (one per AZ)"
+  type        = list(string)
+  default     = ["10.0.101.0/24", "10.0.102.0/24", "10.0.103.0/24"]  # Adjust based on number of AZs
+}
+
+variable "ocm_role_name" {
+  description = "Name of the OCM role"
   type        = string
-  default     = "m5.xlarge"
+  default     = "my-ocm-role"
 }
 
-variable "replicas" {
-  description = "Number of worker nodes"
-  type        = number
-  default     = 2
-}
-
-variable "destroy_timeout" {
-  description = "Timeout for cluster deletion"
-  type        = number
-  default     = 60
-}
-
-variable "upgrade_acknowledgements_for" {
-  description = "Acknowledge upgrade for OpenShift version"
+variable "user_role_name" {
+  description = "Name of the user role"
   type        = string
-  default     = ""
-}
-
-variable "tags" {
-  description = "Tags to apply to resources"
-  type        = map(string)
-  default = {
-    Environment = "dev"
-    Project     = "rosa-hcp"
-  }
+  default     = "my-user-role"
 }

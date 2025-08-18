@@ -1,10 +1,10 @@
 # Basic Configuration
-cluster_name    = "my-rosa-hcp-cluster"
+cluster_name    = "itssolutions"
 name_prefix     = "itssolutions"
 aws_region      = "us-east-1"
 
 # OpenShift Configuration
-openshift_version = "4.14.24"
+openshift_version = "4.16.45"
 availability_zones_count = 3
 
 # Account Roles (set to false if you created them manually before)

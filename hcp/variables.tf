@@ -19,7 +19,7 @@ variable "name_prefix" {
 variable "openshift_version" {
   description = "OpenShift version"
   type        = string
-  default     = "4.14.24"
+  default     = "4.16.45"
 }
 
 variable "availability_zones_count" {

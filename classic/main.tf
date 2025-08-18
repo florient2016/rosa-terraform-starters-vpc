@@ -1,56 +1,69 @@
-# Account-wide IAM roles (run once per AWS account)
-module "account_iam_resources" {
-  source = "terraform-redhat/rosa-hcp/rhcs//modules/account-iam-resources"
-  version = "~> 1.6.0"
-  
-  account_role_prefix = "ManagedOpenShift"
-  #openshift_version   = var.openshift_version
-  tags                = var.tags
+# Create VPC and subnets automatically
+module "vpc" {
+  source  = "terraform-aws-modules/vpc/aws"
+  version = "~> 5.0"
+
+  name = "${var.cluster_name}-vpc"
+  cidr = var.vpc_cidr
+
+  azs              = var.availability_zones
+  private_subnets  = var.private_subnet_cidrs
+  public_subnets   = var.public_subnet_cidrs
+
+  enable_nat_gateway     = true
+  single_nat_gateway     = length(var.availability_zones) == 1 ? true : false
+  one_nat_gateway_per_az = length(var.availability_zones) > 1 ? true : false
+  enable_vpn_gateway     = false
+
+  tags = {
+    Name = "itssolutions"
+  }
 }
 
-# Operator roles and OIDC (per cluster)
-module "operator_roles" {
-  source = "terraform-redhat/rosa-hcp/rhcs//modules/operator-roles"
-  version = "~> 1.6.0"
-  
-  account_role_prefix    = module.account_iam_resources.account_role_prefix
-  operator_role_prefix   = "${var.cluster_name}-operator"
-  oidc_endpoint_url     = module.rosa_hcp.oidc_endpoint_url
-  tags                  = var.tags
+# Create OCM role
+resource "rhcs_rosa_ocm_role" "ocm_role" {
+  name = var.ocm_role_name
+  # Uses standard managed policies by default
 }
 
-# ROSA HCP Cluster
-module "rosa_hcp" {
-  source = "terraform-redhat/rosa-hcp/rhcs"
-  version = "~> 1.6.0"
-  
-  depends_on = [
-    module.account_iam_resources,
-    module.operator_roles
-  ]
+# Create User role (linked to OCM role)
+resource "rhcs_rosa_user_role" "user_role" {
+  name           = var.user_role_name
+  ocm_role_arns  = [rhcs_rosa_ocm_role.ocm_role.arn]
+  # Uses standard managed policies by default
+}
 
-  cluster_name           = var.cluster_name
-  openshift_version      = var.openshift_version
-  #aws_region            = var.region
-  aws_availability_zones = var.multi_az ? ["${var.region}a", "${var.region}b", "${var.region}c"] : ["${var.region}a"]
-  
-  # IAM roles
-  installer_role_arn       = module.account_iam_resources.installer_role_arn
-  support_role_arn        = module.account_iam_resources.support_role_arn  
-  controlplane_role_arn   = module.account_iam_resources.controlplane_role_arn
-  worker_role_arn         = module.account_iam_resources.worker_role_arn
-  
-  # Operator roles
-  operator_role_prefix    = module.operator_roles.operator_role_prefix
-  oidc_config_id         = module.operator_roles.oidc_config_id
-  
-  # Network
-  #create_vpc = var.create_vpc
-  aws_subnet_ids = var.create_vpc ? [] : var.aws_subnet_ids
-  
-  # Compute
-  compute_machine_type = var.machine_type
-  replicas            = var.replicas
-  
-  tags = var.tags
+# Create ROSA Classic cluster (account roles, operator roles, OIDC created automatically)
+module "rosa" {
+  source = "terraform-redhat/rosa-classic/rhcs"
+
+  cluster_name             = var.cluster_name
+  openshift_version        = var.openshift_version
+  account_role_prefix      = var.account_role_prefix
+  operator_role_prefix     = var.operator_role_prefix
+  aws_region               = var.aws_region
+  aws_subnet_ids           = module.vpc.private_subnets  # Use auto-created private subnets
+  availability_zones       = var.availability_zones
+  private                  = var.private
+  multi_az                 = var.multi_az
+  create_account_roles     = true
+  create_operator_roles    = true
+  create_oidc              = true
+  create_admin_user        = false
+
+  tags = {
+    Name = "itssolutions"
+  }
+
+  depends_on = [module.vpc]  # Ensure VPC/subnets exist before cluster creation
+}
+
+output "console_url" {
+  description = "The URL of the ROSA cluster console"
+  value       = module.rosa.console_url
+}
+
+output "cluster_id" {
+  description = "The ID of the ROSA cluster"
+  value       = module.rosa.cluster_id
 }

@@ -1,15 +1,50 @@
-variable "name"              { type = string }
-variable "cluster_name"      { type = string }
-variable "aws_region"        { type = string }
-variable "aws_azs"           { type = list(string)   default = [] }
-variable "machine_cidr"      { type = string         default = null }
-variable "node_replicas"     { type = number         default = 2 }
-variable "openshift_version" { type = string         default = "4.14.24" }
-variable "admin_password"    { type = string         sensitive = true }
+variable "aws_region" {
+  description = "AWS region where the cluster will be created"
+  type        = string
+  default     = "us-east-1"
+}
 
-# VPC options
-variable "create_vpc"        { type = bool  default = false }
-variable "vpc_cidr"          { type = string default = "10.0.0.0/16" }
-variable "vpc_public_subnets" { type = list(string) default = ["10.0.0.0/24","10.0.1.0/24"] }
-variable "vpc_private_subnets"{ type = list(string) default = ["10.0.10.0/24","10.0.11.0/24"] }
-variable "existing_subnet_ids" { type = list(string) default = [] }
+variable "cluster_name" {
+  description = "Name of the ROSA HCP cluster"
+  type        = string
+  default     = "my-rosa-hcp-cluster"
+}
+
+variable "name_prefix" {
+  description = "Prefix for resource names"
+  type        = string
+  default     = "my-cluster"
+}
+
+variable "openshift_version" {
+  description = "OpenShift version"
+  type        = string
+  default     = "4.14.24"
+}
+
+variable "availability_zones_count" {
+  description = "Number of availability zones"
+  type        = number
+  default     = 3
+}
+
+variable "create_account_roles" {
+  description = "Create account roles (set to false if already exist)"
+  type        = bool
+  default     = true
+}
+
+variable "admin_username" {
+  description = "Admin username for htpasswd IDP"
+  type        = string
+  default     = "admin"
+}
+
+variable "tags" {
+  description = "Tags to apply to resources"
+  type        = map(string)
+  default = {
+    Environment = "development"
+    Project     = "rosa-hcp"
+  }
+}

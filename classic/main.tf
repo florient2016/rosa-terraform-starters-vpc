@@ -4,7 +4,7 @@ module "account_iam_resources" {
   version = "~> 1.6.0"
   
   account_role_prefix = "ManagedOpenShift"
-  openshift_version   = var.openshift_version
+  #openshift_version   = var.openshift_version
   tags                = var.tags
 }
 

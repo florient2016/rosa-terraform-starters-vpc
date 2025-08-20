@@ -2,7 +2,7 @@
 variable "prefix" {
   type        = string
   description = "Prefix for ROSA STS role names"
-  default     = "rosa-sts"
+  default     = "labs"
   
   validation {
     condition     = can(regex("^[a-zA-Z][a-zA-Z0-9-]*$", var.prefix))
@@ -13,13 +13,13 @@ variable "prefix" {
 variable "aws_region" {
   type        = string
   description = "AWS region where ROSA cluster will be deployed"
-  default     = "us-west-2"
+  default     = "us-east-2"
 }
 
 variable "openshift_version" {
   type        = string
   description = "OpenShift version for ROSA cluster"
-  default     = "4.14"
+  default     = "4.16.45"
 }
 
 variable "path" {

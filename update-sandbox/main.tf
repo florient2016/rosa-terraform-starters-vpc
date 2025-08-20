@@ -1,4 +1,4 @@
-# main.tf - Provider configuration
+# main.tf - Provider configuration COMPLET
 
 terraform {
   required_version = ">= 1.0"
@@ -19,10 +19,18 @@ terraform {
       source  = "hashicorp/null"
       version = "~> 3.2"
     }
+    random = {
+      source  = "hashicorp/random"
+      version = "~> 3.6"
+    }
+    local = {
+      source  = "hashicorp/local"
+      version = "~> 2.4"
+    }
   }
 }
 
-# AWS Provider
+# Providers
 provider "aws" {
   region = var.aws_region
   
@@ -32,12 +40,23 @@ provider "aws" {
       Project     = var.project_name
       Owner       = var.owner
       CreatedBy   = "Terraform"
-      Prefix      = var.prefix
+      Prefix      = "rosa-generated"
     }
   }
 }
 
-# RHCS Provider
 provider "rhcs" {
   # Uses ROSA_TOKEN environment variable
+}
+
+provider "random" {
+  # Configuration par défaut
+}
+
+provider "local" {
+  # Configuration par défaut
+}
+
+provider "null" {
+  # Configuration par défaut
 }

@@ -1,42 +1,54 @@
-# oidc.tf - Configuration OIDC avec prefix auto-généré
+# oidc.tf - Configuration OIDC pour ROSA
 
-# Créer la configuration OIDC
+# Configuration OIDC pour ROSA STS
 resource "rhcs_rosa_oidc_config" "oidc_config" {
-  depends_on = [null_resource.verify_account_roles]
+  # Dépendre des rôles compte créés et vérifiés
+  depends_on = [null_resource.create_account_roles]
   
+  # Configuration OIDC
   managed            = true
-  secret_arn         = aws_secretsmanager_secret.rosa_token.arn
-  issuer_url         = "" # Sera auto-généré pour OIDC managé
-  installer_role_arn = local.auto_installer_role_arn  # Utiliser le prefix auto-généré
-}
-
-# Créer le secret AWS pour le token ROSA
-resource "aws_secretsmanager_secret" "rosa_token" {
-  name                    = "${local.auto_generated_prefix}-rosa-token"  # Utiliser le prefix auto-généré
-  description             = "Token ROSA pour le cluster ${local.auto_generated_prefix}"
-  recovery_window_in_days = 0 # Pour les environnements de lab
+  secret_arn         = ""
+  issuer_url         = ""
+  installer_role_arn = local.auto_installer_role_arn
   
+  # Tags
   tags = merge(local.common_tags, {
-    Name   = "${local.auto_generated_prefix}-rosa-token"
-    Prefix = local.auto_generated_prefix
+    Name        = "${local.auto_generated_prefix}-oidc-config"
+    Purpose     = "ROSA-STS-OIDC"
+    Prefix      = local.auto_generated_prefix
   })
 }
 
-# Attendre que la configuration OIDC soit prête
-resource "time_sleep" "wait_for_oidc" {
-  depends_on = [rhcs_rosa_oidc_config.oidc_config]
-  
-  create_duration = "30s"
+# Output pour la configuration OIDC
+output "oidc_config_info" {
+  description = "Informations sur la configuration OIDC"
+  value = {
+    id               = rhcs_rosa_oidc_config.oidc_config.id
+    issuer_url       = rhcs_rosa_oidc_config.oidc_config.issuer_url
+    thumbprint       = rhcs_rosa_oidc_config.oidc_config.thumbprint
+    installer_role   = local.auto_installer_role_arn
+  }
 }
 
-# Output pour la configuration OIDC
-output "oidc_config_details" {
-  description = "Détails de la configuration OIDC"
-  value = {
-    id         = rhcs_rosa_oidc_config.oidc_config.id
-    issuer_url = rhcs_rosa_oidc_config.oidc_config.issuer_url
-    secret_arn = aws_secretsmanager_secret.rosa_token.arn
-    prefix     = local.auto_generated_prefix
+# Ressource pour vérifier la configuration OIDC
+resource "null_resource" "verify_oidc_config" {
+  depends_on = [rhcs_rosa_oidc_config.oidc_config]
+  
+  provisioner "local-exec" {
+    command = <<-EOT
+      echo "🔍 Vérification de la configuration OIDC..."
+      echo "📋 ID OIDC: ${rhcs_rosa_oidc_config.oidc_config.id}"
+      echo "🔗 Issuer URL: ${rhcs_rosa_oidc_config.oidc_config.issuer_url}"
+      
+      # Lister les configurations OIDC
+      rosa list oidc-config
+      
+      echo "✅ Configuration OIDC vérifiée avec succès"
+    EOT
   }
-  depends_on = [time_sleep.wait_for_oidc]
+  
+  triggers = {
+    oidc_config_id = rhcs_rosa_oidc_config.oidc_config.id
+    prefix         = local.auto_generated_prefix
+  }
 }

@@ -1,24 +1,27 @@
-# outputs.tf - Updated outputs with OIDC info
+# outputs.tf - Updated outputs
 
-output "oidc_config_id" {
-  description = "OIDC configuration ID"
-  value       = rhcs_rosa_oidc_config.oidc_config.id
+output "account_role_arns" {
+  description = "ARNs of all account roles"
+  value = {
+    installer     = aws_iam_role.account_roles["installer"].arn
+    support       = aws_iam_role.account_roles["support"].arn
+    controlplane  = aws_iam_role.account_roles["controlplane"].arn
+    worker        = aws_iam_role.account_roles["worker"].arn
+  }
 }
 
-output "oidc_endpoint_url" {
-  description = "OIDC endpoint URL (with https://)"
-  value       = aws_iam_openid_connect_provider.rosa_oidc.url
+output "instance_profile_arns" {
+  description = "ARNs of instance profiles"
+  value = {
+    controlplane = aws_iam_instance_profile.controlplane_instance_profile.arn
+    worker       = aws_iam_instance_profile.worker_instance_profile.arn
+  }
 }
 
-output "oidc_provider_arn" {
-  description = "ARN of the AWS OIDC provider"
-  value       = aws_iam_openid_connect_provider.rosa_oidc.arn
-}
-
-output "oidc_thumbprint" {
-  description = "OIDC thumbprint"
-  value       = rhcs_rosa_oidc_config.oidc_config.thumbprint
-  sensitive   = true
+output "external_id" {
+  description = "External ID for Red Hat role assumption"
+  value     = random_uuid.external_id.result
+  sensitive = true
 }
 
 output "rosa_create_cluster_command" {
@@ -36,17 +39,26 @@ output "rosa_create_cluster_command" {
       --region "${var.aws_region}" \
       --version "${var.openshift_version}" \
       --compute-machine-type m5.xlarge \
-      --replicas 3
+      --replicas 3 \
+      --external-id "${random_uuid.external_id.result}"
   EOT
 }
 
-# Debug output to check OIDC URL format
-output "debug_oidc_info" {
-  description = "Debug information for OIDC configuration"
-  value = {
-    raw_oidc_url      = rhcs_rosa_oidc_config.oidc_config.oidc_endpoint_url
-    full_oidc_url     = "https://${rhcs_rosa_oidc_config.oidc_config.oidc_endpoint_url}"
-    provider_url      = aws_iam_openid_connect_provider.rosa_oidc.url
-    oidc_hostname     = replace(aws_iam_openid_connect_provider.rosa_oidc.url, "https://", "")
-  }
+# Validation outputs
+output "validation_commands" {
+  description = "Commands to validate the setup"
+  value = <<-EOT
+    # Check all roles exist
+    aws iam get-role --role-name "${aws_iam_role.account_roles["installer"].name}"
+    aws iam get-role --role-name "${aws_iam_role.account_roles["support"].name}"
+    aws iam get-role --role-name "${aws_iam_role.account_roles["controlplane"].name}"
+    aws iam get-role --role-name "${aws_iam_role.account_roles["worker"].name}"
+    
+    # Check instance profiles
+    aws iam get-instance-profile --instance-profile-name "${aws_iam_instance_profile.controlplane_instance_profile.name}"
+    aws iam get-instance-profile --instance-profile-name "${aws_iam_instance_profile.worker_instance_profile.name}"
+    
+    # Check OIDC provider
+    aws iam get-openid-connect-provider --open-id-connect-provider-arn "${aws_iam_openid_connect_provider.rosa_oidc.arn}"
+  EOT
 }

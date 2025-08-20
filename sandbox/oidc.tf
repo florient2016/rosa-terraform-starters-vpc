@@ -28,8 +28,8 @@ resource "aws_iam_openid_connect_provider" "rosa_oidc" {
 }
 
 # Optional: Data source to validate the OIDC configuration
-data "aws_iam_openid_connect_provider" "rosa_oidc_validation" {
-  url = aws_iam_openid_connect_provider.rosa_oidc.url
-  
-  depends_on = [aws_iam_openid_connect_provider.rosa_oidc]
-}
+#data "aws_iam_openid_connect_provider" "rosa_oidc_validation" {
+#  url = aws_iam_openid_connect_provider.rosa_oidc.url
+#  
+#  depends_on = [aws_iam_openid_connect_provider.rosa_oidc]
+#}

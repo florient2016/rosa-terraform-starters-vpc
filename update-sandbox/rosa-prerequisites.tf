@@ -1,17 +1,4 @@
-# rosa-prerequisites.tf - ROSA prerequisites avec prefix auto-généré - COMPLET
-
-terraform {
-  required_providers {
-    random = {
-      source  = "hashicorp/random"
-      version = "~> 3.6"
-    }
-    local = {
-      source  = "hashicorp/local"
-      version = "~> 2.4"
-    }
-  }
-}
+# rosa-prerequisites.tf - ROSA prerequisites avec prefix auto-généré - SANS DUPLICATIONS
 
 # Générer un prefix unique automatiquement
 resource "random_string" "prefix" {
@@ -43,9 +30,72 @@ locals {
   
   # Nom du cluster avec mode de déploiement
   auto_cluster_name = "${local.auto_generated_prefix}-cluster"
+  
+  # Commande ROSA pour création du cluster Single AZ
+  rosa_cluster_create_command = var.single_az_deployment ? <<-EOT
+#!/bin/bash
+# Commande de création du cluster ROSA - Single AZ
+# Générée automatiquement par Terraform
+
+echo "🚀 Création du cluster ROSA Single AZ: ${local.auto_cluster_name}"
+echo "📍 Zone de disponibilité: ${var.availability_zone}"
+echo "🏷️  Prefix: ${local.auto_generated_prefix}"
+
+rosa create cluster \
+  --cluster-name "${local.auto_cluster_name}" \
+  --region "${var.aws_region}" \
+  --availability-zones "${var.availability_zone}" \
+  --single-az \
+  --compute-machine-type "${var.compute_machine_type}" \
+  --compute-nodes ${var.compute_replicas} \
+  --machine-cidr "${var.machine_cidr}" \
+  --service-cidr "${var.service_cidr}" \
+  --pod-cidr "${var.pod_cidr}" \
+  --host-prefix ${var.host_prefix} \
+  --sts \
+  --role-arn "${local.auto_installer_role_arn}" \
+  --support-role-arn "${local.auto_support_role_arn}" \
+  --controlplane-iam-role "${local.auto_controlplane_role_arn}" \
+  --worker-iam-role "${local.auto_worker_role_arn}" \
+  --operator-roles-prefix "${local.auto_generated_prefix}" \
+  --oidc-config-id "${rhcs_rosa_oidc_config.oidc_config.id}" \
+  --version "${var.openshift_version}" \
+  --yes \
+  --watch
+EOT
+  : <<-EOT
+#!/bin/bash
+# Commande de création du cluster ROSA - Multi AZ
+# Générée automatiquement par Terraform
+
+echo "🚀 Création du cluster ROSA Multi-AZ: ${local.auto_cluster_name}"
+echo "🌐 Région: ${var.aws_region} (Multi-AZ)"
+echo "🏷️  Prefix: ${local.auto_generated_prefix}"
+
+rosa create cluster \
+  --cluster-name "${local.auto_cluster_name}" \
+  --region "${var.aws_region}" \
+  --multi-az \
+  --compute-machine-type "${var.compute_machine_type}" \
+  --compute-nodes ${var.compute_replicas} \
+  --machine-cidr "${var.machine_cidr}" \
+  --service-cidr "${var.service_cidr}" \
+  --pod-cidr "${var.pod_cidr}" \
+  --host-prefix ${var.host_prefix} \
+  --sts \
+  --role-arn "${local.auto_installer_role_arn}" \
+  --support-role-arn "${local.auto_support_role_arn}" \
+  --controlplane-iam-role "${local.auto_controlplane_role_arn}" \
+  --worker-iam-role "${local.auto_worker_role_arn}" \
+  --operator-roles-prefix "${local.auto_generated_prefix}" \
+  --oidc-config-id "${rhcs_rosa_oidc_config.oidc_config.id}" \
+  --version "${var.openshift_version}" \
+  --yes \
+  --watch
+EOT
 }
 
-# RESSOURCE MANQUANTE 1: Sauvegarder le prefix généré dans un fichier local
+# Sauvegarder le prefix généré dans un fichier local
 resource "local_file" "generated_prefix" {
   filename = "${path.module}/generated_prefix.txt"
   content  = <<-EOT
@@ -68,7 +118,7 @@ EOT
   depends_on = [random_string.prefix]
 }
 
-# RESSOURCE MANQUANTE 2: Vérifier les rôles compte existants
+# Vérifier les rôles compte existants
 resource "null_resource" "verify_account_roles" {
   depends_on = [random_string.prefix, local_file.generated_prefix]
   
@@ -96,7 +146,7 @@ resource "null_resource" "verify_account_roles" {
   }
   
   triggers = {
-    rosa_token_change = fileexists("${path.module}/.rosa_token_check") ? file("${path.module}/.rosa_token_check") : timestamp()
+    rosa_token_change = timestamp()
     region           = var.aws_region
     deployment_mode  = var.single_az_deployment ? "saz" : "maz"
   }
@@ -104,7 +154,7 @@ resource "null_resource" "verify_account_roles" {
 
 # Créer les rôles compte avec le prefix auto-généré
 resource "null_resource" "create_account_roles" {
-  depends_on = [random_string.prefix, local_file.generated_prefix, null_resource.verify_account_roles]
+  depends_on = [null_resource.verify_account_roles]
   
   provisioner "local-exec" {
     command = <<-EOT
@@ -156,49 +206,6 @@ resource "null_resource" "create_account_roles" {
     account_id          = local.account_id
     single_az_deployment = var.single_az_deployment
     availability_zone    = var.single_az_deployment ? var.availability_zone : "multi-az"
-    force_recreate      = timestamp()
-  }
-}
-
-# Créer les rôles opérateur après les rôles compte
-resource "null_resource" "create_operator_roles" {
-  depends_on = [null_resource.create_account_roles, rhcs_rosa_oidc_config.oidc_config]
-  
-  provisioner "local-exec" {
-    command = <<-EOT
-      echo "🔍 Vérification des rôles opérateur avec prefix ${local.auto_generated_prefix}..."
-      
-      # Vérifier si les rôles opérateur existent
-      if rosa list operator-roles --prefix ${local.auto_generated_prefix} 2>/dev/null | grep -q "${local.auto_generated_prefix}"; then
-        echo "✅ Les rôles opérateur existent déjà"
-        rosa list operator-roles --prefix ${local.auto_generated_prefix}
-      else
-        echo "🔄 Création des rôles opérateur..."
-        
-        # Créer les rôles opérateur
-        rosa create operator-roles \
-          --mode auto \
-          --yes \
-          --prefix "${local.auto_generated_prefix}" \
-          --oidc-config-id "${rhcs_rosa_oidc_config.oidc_config.id}" \
-          --installer-role-arn "${local.auto_installer_role_arn}"
-        
-        if [ $? -eq 0 ]; then
-          echo "✅ Rôles opérateur créés avec succès!"
-          rosa list operator-roles --prefix ${local.auto_generated_prefix}
-        else
-          echo "❌ Erreur lors de la création des rôles opérateur"
-          exit 1
-        fi
-      fi
-    EOT
-  }
-  
-  triggers = {
-    prefix           = local.auto_generated_prefix
-    oidc_config_id   = rhcs_rosa_oidc_config.oidc_config.id
-    installer_role   = local.auto_installer_role_arn
-    force_recreate   = timestamp()
   }
 }
 
@@ -214,5 +221,25 @@ output "generated_prefix_info" {
     saved_to_file       = "generated_prefix.txt"
     installer_role_arn  = local.auto_installer_role_arn
     support_role_arn    = local.auto_support_role_arn
+  }
+}
+
+# Output pour la commande ROSA
+output "rosa_cluster_create_command" {
+  description = "Commande complète de création du cluster ROSA avec prefix auto-généré"
+  value       = local.rosa_cluster_create_command
+}
+
+# Output de configuration de déploiement  
+output "deployment_configuration" {
+  description = "Configuration du déploiement"
+  value = {
+    mode              = var.single_az_deployment ? "Single AZ" : "Multi-AZ"
+    availability_zone = var.single_az_deployment ? var.availability_zone : "Multi-AZ"
+    region           = var.aws_region
+    prefix           = local.auto_generated_prefix
+    cluster_name     = local.auto_cluster_name
+    machine_type     = var.compute_machine_type
+    compute_nodes    = var.compute_replicas
   }
 }

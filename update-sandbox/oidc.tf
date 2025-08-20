@@ -1,4 +1,4 @@
-# oidc.tf - Configuration OIDC pour ROSA
+# oidc.tf - Configuration OIDC pour ROSA - SANS DUPLICATIONS
 
 # Configuration OIDC pour ROSA STS
 resource "rhcs_rosa_oidc_config" "oidc_config" {
@@ -27,28 +27,5 @@ output "oidc_config_info" {
     issuer_url       = rhcs_rosa_oidc_config.oidc_config.issuer_url
     thumbprint       = rhcs_rosa_oidc_config.oidc_config.thumbprint
     installer_role   = local.auto_installer_role_arn
-  }
-}
-
-# Ressource pour vérifier la configuration OIDC
-resource "null_resource" "verify_oidc_config" {
-  depends_on = [rhcs_rosa_oidc_config.oidc_config]
-  
-  provisioner "local-exec" {
-    command = <<-EOT
-      echo "🔍 Vérification de la configuration OIDC..."
-      echo "📋 ID OIDC: ${rhcs_rosa_oidc_config.oidc_config.id}"
-      echo "🔗 Issuer URL: ${rhcs_rosa_oidc_config.oidc_config.issuer_url}"
-      
-      # Lister les configurations OIDC
-      rosa list oidc-config
-      
-      echo "✅ Configuration OIDC vérifiée avec succès"
-    EOT
-  }
-  
-  triggers = {
-    oidc_config_id = rhcs_rosa_oidc_config.oidc_config.id
-    prefix         = local.auto_generated_prefix
   }
 }

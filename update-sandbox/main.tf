@@ -1,4 +1,4 @@
-# main.tf - Provider configuration COMPLET
+# main.tf - Provider configuration - UNIQUE
 
 terraform {
   required_version = ">= 1.0"
@@ -47,16 +47,4 @@ provider "aws" {
 
 provider "rhcs" {
   # Uses ROSA_TOKEN environment variable
-}
-
-provider "random" {
-  # Configuration par défaut
-}
-
-provider "local" {
-  # Configuration par défaut
-}
-
-provider "null" {
-  # Configuration par défaut
 }

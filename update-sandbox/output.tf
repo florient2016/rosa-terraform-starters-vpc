@@ -1,28 +1,88 @@
-# outputs.tf - Updated outputs with OpenShift version
+# outputs.tf - Updated for HCP ROSA roles
 
-output "account_role_arns" {
-  description = "ARNs of all account roles"
+# Account Role ARNs
+output "installer_role_arn" {
+  description = "ARN of the ROSA Installer role"
+  value       = aws_iam_role.account_roles["installer"].arn
+}
+
+output "support_role_arn" {
+  description = "ARN of the ROSA Support role"
+  value       = aws_iam_role.account_roles["support"].arn
+}
+
+output "worker_role_arn" {
+  description = "ARN of the ROSA Worker role"
+  value       = aws_iam_role.account_roles["worker"].arn
+}
+
+# Instance Profile ARNs (only worker for HCP)
+output "worker_instance_profile_arn" {
+  description = "ARN of the ROSA Worker instance profile"
+  value       = aws_iam_instance_profile.worker_instance_profile.arn
+}
+
+# Role Names (useful for ROSA cluster creation)
+output "installer_role_name" {
+  description = "Name of the ROSA Installer role"
+  value       = aws_iam_role.account_roles["installer"].name
+}
+
+output "support_role_name" {
+  description = "Name of the ROSA Support role"
+  value       = aws_iam_role.account_roles["support"].name
+}
+
+output "worker_role_name" {
+  description = "Name of the ROSA Worker role"
+  value       = aws_iam_role.account_roles["worker"].name
+}
+
+output "worker_instance_profile_name" {
+  description = "Name of the ROSA Worker instance profile"
+  value       = aws_iam_instance_profile.worker_instance_profile.name
+}
+
+# Combined outputs for easy reference
+output "account_roles" {
+  description = "Map of all account role ARNs"
   value = {
-    installer     = aws_iam_role.account_roles["installer"].arn
-    support       = aws_iam_role.account_roles["support"].arn
-    controlplane  = aws_iam_role.account_roles["controlplane"].arn
-    worker        = aws_iam_role.account_roles["worker"].arn
+    installer = aws_iam_role.account_roles["installer"].arn
+    support   = aws_iam_role.account_roles["support"].arn
+    worker    = aws_iam_role.account_roles["worker"].arn
   }
 }
 
-output "instance_profile_arns" {
-  description = "ARNs of instance profiles"
+output "account_role_names" {
+  description = "Map of all account role names"
   value = {
-    controlplane = aws_iam_instance_profile.controlplane_instance_profile.arn
-    worker       = aws_iam_instance_profile.worker_instance_profile.arn
+    installer = aws_iam_role.account_roles["installer"].name
+    support   = aws_iam_role.account_roles["support"].name
+    worker    = aws_iam_role.account_roles["worker"].name
   }
 }
 
-output "external_id" {
-  description = "External ID for Red Hat role assumption"
-  value     = random_uuid.external_id.result
-  sensitive = true
+# Role prefix for reference
+output "role_prefix" {
+  description = "Prefix used for role names"
+  value       = var.prefix
 }
+
+# OpenShift version for reference
+output "openshift_version" {
+  description = "OpenShift version these roles support"
+  value       = var.openshift_version
+}
+
+# Account ID for reference
+output "aws_account_id" {
+  description = "AWS Account ID where roles are created"
+  value       = data.aws_caller_identity.current.account_id
+}
+
+# Data source for current AWS account
+data "aws_caller_identity" "current" {}
+
 
 output "rosa_create_cluster_command" {
   description = "ROSA CLI command to create cluster"

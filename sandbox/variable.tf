@@ -25,5 +25,5 @@ variable "openshift_version" {
 variable "path" {
   description = "IAM path for the roles"
   type        = string
-  default     = "/home/rhel/rosa-sts/"
+  default     = "/"
 }

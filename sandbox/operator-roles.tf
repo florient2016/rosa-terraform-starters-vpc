@@ -1,32 +1,35 @@
-# operator-roles.tf - Operator roles (optional, for full cluster setup)
+# operator-roles.tf - Updated with proper OIDC URL handling
 
-# Example operator roles - you may need to adjust based on your cluster needs
+# Example operator roles with fixed OIDC references
 locals {
   operator_roles = {
     "cloud-credentials" = {
       name      = "cloud-credentials"
       namespace = "openshift-cloud-credential-operator"
-      policies  = ["CloudCredentialOperatorRole"]
+      policies  = ["ROSACloudCredentialsRole"]
     }
     "image-registry" = {
       name      = "image-registry"
       namespace = "openshift-image-registry"
-      policies  = ["ImageRegistryOperatorRole"]
+      policies  = ["ROSAImageRegistryRole"]
     }
     "ingress" = {
       name      = "ingress"
       namespace = "openshift-ingress-operator"
-      policies  = ["IngressOperatorRole"]
+      policies  = ["ROSAIngressRole"]
     }
     "cluster-csi-drivers" = {
       name      = "cluster-csi-drivers"
       namespace = "openshift-cluster-csi-drivers"
-      policies  = ["CSIDriverOperatorRole"]
+      policies  = ["ROSANodePoolManagementRole"]
     }
   }
+  
+  # Extract hostname from OIDC URL for conditions
+  oidc_hostname = replace(aws_iam_openid_connect_provider.rosa_oidc.url, "https://", "")
 }
 
-# Trust policy for operator roles
+# Trust policy for operator roles with fixed OIDC reference
 data "aws_iam_policy_document" "operator_trust_policy" {
   for_each = local.operator_roles
   
@@ -41,13 +44,13 @@ data "aws_iam_policy_document" "operator_trust_policy" {
     
     condition {
       test     = "StringEquals"
-      variable = "${replace(aws_iam_openid_connect_provider.rosa_oidc.url, "https://", "")}:sub"
+      variable = "${local.oidc_hostname}:sub"
       values   = ["system:serviceaccount:${each.value.namespace}:${each.value.name}"]
     }
     
     condition {
       test     = "StringEquals"
-      variable = "${replace(aws_iam_openid_connect_provider.rosa_oidc.url, "https://", "")}:aud"
+      variable = "${local.oidc_hostname}:aud"
       values   = ["sts.amazonaws.com"]
     }
   }
@@ -71,22 +74,76 @@ resource "aws_iam_role" "operator_roles" {
   })
 }
 
-# Attach policies to operator roles (you'll need to create/reference appropriate policies)
-resource "aws_iam_role_policy_attachment" "operator_policy_attachments" {
-  for_each = {
-    for combo in flatten([
-      for role_key, role in local.operator_roles : [
-        for policy in role.policies : {
-          role_key   = role_key
-          policy     = policy
-          combo_key  = "${role_key}-${policy}"
-        }
-      ]
-    ]) : combo.combo_key => combo
+# Custom policies for operator roles (since AWS managed policies may not exist)
+data "aws_iam_policy_document" "cloud_credentials_policy" {
+  statement {
+    effect = "Allow"
+    actions = [
+      "sts:AssumeRole",
+      "sts:TagSession",
+      "sts:GetAccessKeyInfo",
+    ]
+    resources = ["*"]
   }
   
-  role       = aws_iam_role.operator_roles[each.value.role_key].name
-  policy_arn = "arn:${local.partition}:iam::aws:policy/service-role/ROSA${each.value.policy}"
+  statement {
+    effect = "Allow"
+    actions = [
+      "iam:GetRole",
+      "iam:ListRoles",
+      "iam:PassRole",
+    ]
+    resources = [
+      "arn:${local.partition}:iam::${local.account_id}:role/${var.prefix}-*"
+    ]
+  }
+}
+
+data "aws_iam_policy_document" "image_registry_policy" {
+  statement {
+    effect = "Allow"
+    actions = [
+      "s3:CreateBucket",
+      "s3:DeleteBucket",
+      "s3:PutBucketTagging",
+      "s3:GetBucketTagging",
+      "s3:PutBucketPublicAccessBlock",
+      "s3:GetBucketPublicAccessBlock",
+      "s3:PutEncryptionConfiguration",
+      "s3:GetEncryptionConfiguration",
+      "s3:PutBucketPolicy",
+      "s3:GetBucketPolicy",
+      "s3:ListBucket",
+      "s3:GetObject",
+      "s3:PutObject",
+      "s3:DeleteObject",
+    ]
+    resources = [
+      "arn:${local.partition}:s3:::*"
+    ]
+  }
+}
+
+# Apply custom policies
+resource "aws_iam_role_policy" "operator_policies" {
+  for_each = local.operator_roles
   
-  # Note: You may need to create custom policies or use different ARNs based on actual ROSA operator policies
+  name = "${var.prefix}-${each.key}-operator-policy"
+  role = aws_iam_role.operator_roles[each.key].id
+  
+  policy = each.key == "cloud-credentials" ? data.aws_iam_policy_document.cloud_credentials_policy.json : (
+    each.key == "image-registry" ? data.aws_iam_policy_document.image_registry_policy.json : 
+    jsonencode({
+      Version = "2012-10-17"
+      Statement = [
+        {
+          Effect = "Allow"
+          Action = [
+            "sts:GetCallerIdentity"
+          ]
+          Resource = "*"
+        }
+      ]
+    })
+  )
 }

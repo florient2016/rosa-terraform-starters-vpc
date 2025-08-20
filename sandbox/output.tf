@@ -1,42 +1,13 @@
-# outputs.tf
-output "aws_account_id" {
-  description = "AWS Account ID where resources are created"
-  value       = local.account_id
-}
-
-output "rosa_ocm_role_arn" {
-  description = "ARN of the OCM role"
-  value       = aws_iam_role.ocm_role.arn
-}
-
-output "rosa_user_role_arn" {
-  description = "ARN of the User role"
-  value       = aws_iam_role.user_role.arn
-}
-
-output "rosa_installer_role_arn" {
-  description = "ARN of the Installer role"
-  value       = aws_iam_role.account_roles["installer"].arn
-}
-
-output "rosa_support_role_arn" {
-  description = "ARN of the Support role"
-  value       = aws_iam_role.account_roles["support"].arn
-}
-
-output "rosa_controlplane_role_arn" {
-  description = "ARN of the Control Plane role"
-  value       = aws_iam_role.account_roles["controlplane"].arn
-}
-
-output "rosa_worker_role_arn" {
-  description = "ARN of the Worker role"
-  value       = aws_iam_role.account_roles["worker"].arn
-}
+# outputs.tf - Updated outputs with OIDC info
 
 output "oidc_config_id" {
   description = "OIDC configuration ID"
   value       = rhcs_rosa_oidc_config.oidc_config.id
+}
+
+output "oidc_endpoint_url" {
+  description = "OIDC endpoint URL (with https://)"
+  value       = aws_iam_openid_connect_provider.rosa_oidc.url
 }
 
 output "oidc_provider_arn" {
@@ -44,23 +15,10 @@ output "oidc_provider_arn" {
   value       = aws_iam_openid_connect_provider.rosa_oidc.arn
 }
 
-output "operator_role_arns" {
-  description = "Map of operator role ARNs"
-  value = {
-    for k, role in aws_iam_role.operator_roles : k => role.arn
-  }
-}
-
-output "all_role_arns" {
-  description = "All ROSA STS role ARNs"
-  value = {
-    ocm_role          = aws_iam_role.ocm_role.arn
-    user_role         = aws_iam_role.user_role.arn
-    installer_role    = aws_iam_role.account_roles["installer"].arn
-    support_role      = aws_iam_role.account_roles["support"].arn
-    controlplane_role = aws_iam_role.account_roles["controlplane"].arn
-    worker_role       = aws_iam_role.account_roles["worker"].arn
-  }
+output "oidc_thumbprint" {
+  description = "OIDC thumbprint"
+  value       = rhcs_rosa_oidc_config.oidc_config.thumbprint
+  sensitive   = true
 }
 
 output "rosa_create_cluster_command" {
@@ -74,20 +32,21 @@ output "rosa_create_cluster_command" {
       --controlplane-iam-role "${aws_iam_role.account_roles["controlplane"].arn}" \
       --worker-iam-role "${aws_iam_role.account_roles["worker"].arn}" \
       --oidc-config-id "${rhcs_rosa_oidc_config.oidc_config.id}" \
+      --operator-roles-prefix "${var.prefix}" \
       --region "${var.aws_region}" \
-      --version "${var.openshift_version}"
+      --version "${var.openshift_version}" \
+      --compute-machine-type m5.xlarge \
+      --replicas 3
   EOT
 }
 
-# Summary output
-output "summary" {
-  description = "Summary of created resources"
+# Debug output to check OIDC URL format
+output "debug_oidc_info" {
+  description = "Debug information for OIDC configuration"
   value = {
-    prefix            = var.prefix
-    region           = var.aws_region
-    account_id       = local.account_id
-    roles_created    = length(aws_iam_role.account_roles) + 2  # +2 for OCM and User roles
-    oidc_config_id   = rhcs_rosa_oidc_config.oidc_config.id
-    operator_roles   = length(aws_iam_role.operator_roles)
+    raw_oidc_url      = rhcs_rosa_oidc_config.oidc_config.oidc_endpoint_url
+    full_oidc_url     = "https://${rhcs_rosa_oidc_config.oidc_config.oidc_endpoint_url}"
+    provider_url      = aws_iam_openid_connect_provider.rosa_oidc.url
+    oidc_hostname     = replace(aws_iam_openid_connect_provider.rosa_oidc.url, "https://", "")
   }
 }

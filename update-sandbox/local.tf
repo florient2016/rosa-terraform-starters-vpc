@@ -1,36 +1,49 @@
-# locals.tf - Local values
+# locals.tf - Valeurs locales avec configuration Single AZ
 
 locals {
-  # Get current AWS account ID
+  # ID du compte AWS
   account_id = data.aws_caller_identity.current.account_id
   
-  # Common tags
+  # Tags communs
   common_tags = {
     Environment = var.environment
     Project     = var.project_name
     Owner       = var.owner
     CreatedBy   = "Terraform"
-    Prefix      = var.prefix
     Region      = var.aws_region
+    Deployment  = var.single_az_deployment ? "SingleAZ" : "MultiAZ"
   }
   
-  # Role ARNs that will be created by ROSA CLI
-  installer_role_arn    = "arn:aws:iam::${local.account_id}:role/${var.prefix}-ManagedOpenShift-Installer-Role"
-  support_role_arn      = "arn:aws:iam::${local.account_id}:role/${var.prefix}-ManagedOpenShift-Support-Role"
-  controlplane_role_arn = "arn:aws:iam::${local.account_id}:role/${var.prefix}-ManagedOpenShift-ControlPlane-Role"
-  worker_role_arn       = "arn:aws:iam::${local.account_id}:role/${var.prefix}-ManagedOpenShift-Worker-Role"
+  # Utiliser le prefix auto-généré
+  effective_prefix = local.auto_generated_prefix
   
-  # Cluster configuration
-  cluster_name = "${var.prefix}-cluster"
+  # ARNs des rôles avec le prefix auto-généré
+  installer_role_arn    = local.auto_installer_role_arn
+  support_role_arn      = local.auto_support_role_arn
+  controlplane_role_arn = local.auto_controlplane_role_arn
+  worker_role_arn       = local.auto_worker_role_arn
   
-  # Network CIDRs
-  machine_cidr = "10.0.0.0/16"
-  service_cidr = "172.30.0.0/16"
-  pod_cidr     = "10.128.0.0/14"
-  host_prefix  = 23
+  # Nom du cluster avec prefix auto-généré et indicateur Single AZ
+  cluster_name = "${local.auto_generated_prefix}-${var.single_az_deployment ? "singleaz" : "multiaz"}-cluster"
+  
+  # Configuration réseau
+  machine_cidr = var.machine_cidr
+  service_cidr = var.service_cidr
+  pod_cidr     = var.pod_cidr
+  host_prefix  = var.host_prefix
+  
+  # Configuration Single AZ
+  deployment_mode = var.single_az_deployment ? "single-az" : "multi-az"
+  availability_zone = var.single_az_deployment ? var.availability_zone : null
+  
+  # Validation pour Single AZ
+  validate_single_az = var.single_az_deployment ? (
+    length(var.availability_zone) > 0 ? true : 
+    error("availability_zone must be specified when single_az_deployment is true")
+  ) : true
 }
 
-# Data sources
+# Sources de données
 data "aws_caller_identity" "current" {}
 
 data "aws_availability_zones" "available" {
@@ -42,3 +55,9 @@ data "aws_availability_zones" "available" {
 }
 
 data "aws_partition" "current" {}
+
+# Vérifier que l'AZ spécifiée existe
+data "aws_availability_zone" "selected" {
+  count = var.single_az_deployment ? 1 : 0
+  name  = var.availability_zone
+}

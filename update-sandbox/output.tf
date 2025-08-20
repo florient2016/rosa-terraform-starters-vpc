@@ -102,38 +102,39 @@ output "rosa_create_cluster_command" {
   EOT
 }
 
-output "validation_commands" {
-  description = "Commands to validate the setup"
-  value = <<-EOT
-    # Check all roles exist
-    aws iam get-role --role-name "${aws_iam_role.account_roles["installer"].name}"
-    aws iam get-role --role-name "${aws_iam_role.account_roles["support"].name}"
-    aws iam get-role --role-name "${aws_iam_role.account_roles["controlplane"].name}"
-    aws iam get-role --role-name "${aws_iam_role.account_roles["worker"].name}"
-    
-    # Check instance profiles
-    aws iam get-instance-profile --instance-profile-name "${aws_iam_instance_profile.controlplane_instance_profile.name}"
-    aws iam get-instance-profile --instance-profile-name "${aws_iam_instance_profile.worker_instance_profile.name}"
-    
-    # Check OIDC provider
-    aws iam get-openid-connect-provider --open-id-connect-provider-arn "${aws_iam_openid_connect_provider.rosa_oidc.arn}"
-  EOT
-}
-
-output "role_names" {
-  description = "Names of created roles for reference"
-  value = {
-    installer     = aws_iam_role.account_roles["installer"].name
-    support       = aws_iam_role.account_roles["support"].name
-    controlplane  = aws_iam_role.account_roles["controlplane"].name
-    worker        = aws_iam_role.account_roles["worker"].name
-  }
-}
-
-output "openshift_version_info" {
-  description = "OpenShift version information"
-  value = {
-    full_version = var.openshift_version
-    major_minor  = local.openshift_major_minor
-  }
-}
+#output "validation_commands" {
+#  description = "Commands to validate the setup"
+#  value = <<-EOT
+#    # Check all roles exist
+#    aws iam get-role --role-name "${aws_iam_role.account_roles["installer"].name}"
+#    aws iam get-role --role-name "${aws_iam_role.account_roles["support"].name}"
+#    aws iam get-role --role-name "${aws_iam_role.account_roles["controlplane"].name}"
+#    aws iam get-role --role-name "${aws_iam_role.account_roles["worker"].name}"
+#    
+#    # Check instance profiles
+#    aws iam get-instance-profile --instance-profile-name "${aws_iam_instance_profile.controlplane_instance_profile.name}"
+#    aws iam get-instance-profile --instance-profile-name "${aws_iam_instance_profile.worker_instance_profile.name}"
+#    
+#    # Check OIDC provider
+#    aws iam get-openid-connect-provider --open-id-connect-provider-arn "${aws_iam_openid_connect_provider.rosa_oidc.arn}"
+#  EOT
+#}
+#
+#output "role_names" {
+#  description = "Names of created roles for reference"
+#  value = {
+#    installer     = aws_iam_role.account_roles["installer"].name
+#    support       = aws_iam_role.account_roles["support"].name
+#    controlplane  = aws_iam_role.account_roles["controlplane"].name
+#    worker        = aws_iam_role.account_roles["worker"].name
+#  }
+#}
+#
+#output "openshift_version_info" {
+#  description = "OpenShift version information"
+#  value = {
+#    full_version = var.openshift_version
+#    major_minor  = local.openshift_major_minor
+#  }
+#}
+#

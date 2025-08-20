@@ -1,7 +1,7 @@
 # variables.tf
 variable "prefix" {
   type        = string
-  description = "Prefix for ROSA STS role names (equivalent to $SUFFIX in CLI)"
+  description = "Prefix for ROSA STS role names"
   default     = "rosa-sts"
   
   validation {
@@ -13,13 +13,7 @@ variable "prefix" {
 variable "aws_region" {
   type        = string
   description = "AWS region where ROSA cluster will be deployed"
-  default     = "us-east-1"
-}
-
-variable "aws_account_id" {
-  type        = string
-  description = "AWS account ID (optional, will auto-detect if not provided)"
-  default     = ""
+  default     = "us-west-2"
 }
 
 variable "openshift_version" {
@@ -28,14 +22,8 @@ variable "openshift_version" {
   default     = "4.14"
 }
 
-variable "operator_role_prefix" {
+variable "path" {
+  description = "IAM path for the roles"
   type        = string
-  description = "Prefix for operator roles"
-  default     = ""
-}
-
-variable "oidc_config_id" {
-  type        = string
-  description = "OIDC config ID (optional, will be auto-generated if not provided)"
-  default     = ""
+  default     = "/home/rhel/rosa-sts/"
 }

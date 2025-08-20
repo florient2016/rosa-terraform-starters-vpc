@@ -38,3 +38,14 @@ variable "cluster_name" {
   type        = string
   default     = "my-cluster"
 }
+
+
+variable "tags" {
+  description = "Common tags to be applied to all resources"
+  type        = map(string)
+  default = {
+    Environment = "lab"
+    Project     = "rosa-hcp"
+    ManagedBy   = "terraform"
+  }
+}

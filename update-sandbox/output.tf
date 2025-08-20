@@ -1,4 +1,4 @@
-# outputs.tf - Updated for HCP ROSA roles
+# outputs.tf - Clean version for HCP ROSA roles
 
 # Account Role ARNs
 output "installer_role_arn" {
@@ -80,8 +80,6 @@ output "aws_account_id" {
   value       = data.aws_caller_identity.current.account_id
 }
 
-# Data source for current AWS account
-data "aws_caller_identity" "current" {}
 
 
 output "rosa_create_cluster_command" {

@@ -82,26 +82,26 @@ output "aws_account_id" {
 
 
 
-output "rosa_create_cluster_command" {
-  description = "ROSA CLI command to create cluster"
-  value = <<-EOT
-    rosa create cluster \
-      --cluster-name "${var.prefix}-cluster" \
-      --sts \
-      --role-arn "${aws_iam_role.account_roles["installer"].arn}" \
-      --support-role-arn "${aws_iam_role.account_roles["support"].arn}" \
-      --controlplane-iam-role "${aws_iam_role.account_roles["controlplane"].arn}" \
-      --worker-iam-role "${aws_iam_role.account_roles["worker"].arn}" \
-      --oidc-config-id "${rhcs_rosa_oidc_config.oidc_config.id}" \
-      --operator-roles-prefix "${var.prefix}" \
-      --region "${var.aws_region}" \
-      --version "${var.openshift_version}" \
-      --compute-machine-type m5.xlarge \
-      --replicas 3 \
-      --external-id "${random_uuid.external_id.result}"
-  EOT
-}
-
+#output "rosa_create_cluster_command" {
+#  description = "ROSA CLI command to create cluster"
+#  value = <<-EOT
+#    rosa create cluster \
+#      --cluster-name "${var.prefix}-cluster" \
+#      --sts \
+#      --role-arn "${aws_iam_role.account_roles["installer"].arn}" \
+#      --support-role-arn "${aws_iam_role.account_roles["support"].arn}" \
+#      --controlplane-iam-role "${aws_iam_role.account_roles["controlplane"].arn}" \
+#      --worker-iam-role "${aws_iam_role.account_roles["worker"].arn}" \
+#      --oidc-config-id "${rhcs_rosa_oidc_config.oidc_config.id}" \
+#      --operator-roles-prefix "${var.prefix}" \
+#      --region "${var.aws_region}" \
+#      --version "${var.openshift_version}" \
+#      --compute-machine-type m5.xlarge \
+#      --replicas 3 \
+#      --external-id "${random_uuid.external_id.result}"
+#  EOT
+#}
+#
 #output "validation_commands" {
 #  description = "Commands to validate the setup"
 #  value = <<-EOT

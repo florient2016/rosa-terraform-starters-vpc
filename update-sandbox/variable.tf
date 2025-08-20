@@ -32,3 +32,9 @@ variable "path" {
   type        = string
   default     = "/"
 }
+
+variable "cluster_name" {
+  description = "Name of the ROSA cluster"
+  type        = string
+  default     = "my-cluster"
+}

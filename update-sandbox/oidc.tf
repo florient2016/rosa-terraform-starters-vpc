@@ -1,31 +1,35 @@
-# oidc.tf - Configuration OIDC pour ROSA - SANS DUPLICATIONS
+# oidc.tf - Fixed OIDC Configuration
 
-# Configuration OIDC pour ROSA STS
+# Create OIDC configuration
 resource "rhcs_rosa_oidc_config" "oidc_config" {
-  # Dépendre des rôles compte créés et vérifiés
-  depends_on = [null_resource.create_account_roles]
-  
-  # Configuration OIDC
-  managed            = true
-  secret_arn         = ""
-  issuer_url         = ""
-  installer_role_arn = local.auto_installer_role_arn
-  
-  # Tags
-  tags = merge(local.common_tags, {
-    Name        = "${local.auto_generated_prefix}-oidc-config"
-    Purpose     = "ROSA-STS-OIDC"
-    Prefix      = local.auto_generated_prefix
-  })
+  managed = true
 }
 
-# Output pour la configuration OIDC
-output "oidc_config_info" {
-  description = "Informations sur la configuration OIDC"
-  value = {
-    id               = rhcs_rosa_oidc_config.oidc_config.id
-    issuer_url       = rhcs_rosa_oidc_config.oidc_config.issuer_url
-    thumbprint       = rhcs_rosa_oidc_config.oidc_config.thumbprint
-    installer_role   = local.auto_installer_role_arn
+# Create OIDC provider in AWS with proper URL formatting
+resource "aws_iam_openid_connect_provider" "rosa_oidc" {
+  # Fix the URL by adding https:// protocol
+  url = "https://${rhcs_rosa_oidc_config.oidc_config.oidc_endpoint_url}"
+  
+  client_id_list = [
+    "openshift",
+    "sts.amazonaws.com"
+  ]
+  
+  thumbprint_list = [rhcs_rosa_oidc_config.oidc_config.thumbprint]
+  
+  tags = merge(local.common_tags, {
+    Name = "${var.prefix}-rosa-oidc-provider"
+    Type = "OIDCProvider"
+  })
+  
+  lifecycle {
+    ignore_changes = [thumbprint_list]
   }
 }
+
+# Optional: Data source to validate the OIDC configuration
+#data "aws_iam_openid_connect_provider" "rosa_oidc_validation" {
+#  url = aws_iam_openid_connect_provider.rosa_oidc.url
+#  
+#  depends_on = [aws_iam_openid_connect_provider.rosa_oidc]
+#}

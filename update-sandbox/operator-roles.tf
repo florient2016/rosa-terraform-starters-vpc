@@ -1,53 +1,149 @@
-# operator-roles.tf - Rôles opérateur ROSA - SANS DUPLICATION avec rosa-prerequisites.tf
+# operator-roles.tf - Updated with proper OIDC URL handling
 
-# Créer les rôles opérateur après OIDC config (nom unique)
-resource "null_resource" "setup_operator_roles" {
-  depends_on = [null_resource.create_account_roles, rhcs_rosa_oidc_config.oidc_config]
-  
-  provisioner "local-exec" {
-    command = <<-EOT
-      echo "🔍 Configuration des rôles opérateur avec prefix ${local.auto_generated_prefix}..."
-      
-      # Vérifier si les rôles opérateur existent
-      if rosa list operator-roles --prefix ${local.auto_generated_prefix} 2>/dev/null | grep -q "${local.auto_generated_prefix}"; then
-        echo "✅ Les rôles opérateur existent déjà"
-        rosa list operator-roles --prefix ${local.auto_generated_prefix}
-      else
-        echo "🔄 Création des rôles opérateur..."
-        
-        # Créer les rôles opérateur
-        rosa create operator-roles \
-          --mode auto \
-          --yes \
-          --prefix "${local.auto_generated_prefix}" \
-          --oidc-config-id "${rhcs_rosa_oidc_config.oidc_config.id}" \
-          --installer-role-arn "${local.auto_installer_role_arn}"
-        
-        if [ $? -eq 0 ]; then
-          echo "✅ Rôles opérateur créés avec succès!"
-          rosa list operator-roles --prefix ${local.auto_generated_prefix}
-        else
-          echo "❌ Erreur lors de la création des rôles opérateur"
-          exit 1
-        fi
-      fi
-    EOT
+# Example operator roles with fixed OIDC references
+locals {
+  operator_roles = {
+    "cloud-credentials" = {
+      name      = "cloud-credentials"
+      namespace = "openshift-cloud-credential-operator"
+      policies  = ["ROSACloudCredentialsRole"]
+    }
+    "image-registry" = {
+      name      = "image-registry"
+      namespace = "openshift-image-registry"
+      policies  = ["ROSAImageRegistryRole"]
+    }
+    "ingress" = {
+      name      = "ingress"
+      namespace = "openshift-ingress-operator"
+      policies  = ["ROSAIngressRole"]
+    }
+    "cluster-csi-drivers" = {
+      name      = "cluster-csi-drivers"
+      namespace = "openshift-cluster-csi-drivers"
+      policies  = ["ROSANodePoolManagementRole"]
+    }
   }
   
-  triggers = {
-    prefix           = local.auto_generated_prefix
-    oidc_config_id   = rhcs_rosa_oidc_config.oidc_config.id
-    installer_role   = local.auto_installer_role_arn
+  # Extract hostname from OIDC URL for conditions
+  oidc_hostname = replace(aws_iam_openid_connect_provider.rosa_oidc.url, "https://", "")
+}
+
+# Trust policy for operator roles with fixed OIDC reference
+data "aws_iam_policy_document" "operator_trust_policy" {
+  for_each = local.operator_roles
+  
+  statement {
+    effect  = "Allow"
+    actions = ["sts:AssumeRoleWithWebIdentity"]
+    
+    principals {
+      type        = "Federated"
+      identifiers = [aws_iam_openid_connect_provider.rosa_oidc.arn]
+    }
+    
+    condition {
+      test     = "StringEquals"
+      variable = "${local.oidc_hostname}:sub"
+      values   = ["system:serviceaccount:${each.value.namespace}:${each.value.name}"]
+    }
+    
+    condition {
+      test     = "StringEquals"
+      variable = "${local.oidc_hostname}:aud"
+      values   = ["sts.amazonaws.com"]
+    }
   }
 }
 
-# Output pour les rôles opérateur
-output "operator_roles_info" {
-  description = "Informations sur les rôles opérateur"
-  value = {
-    prefix         = local.auto_generated_prefix
-    oidc_config_id = rhcs_rosa_oidc_config.oidc_config.id
-    created        = true
+# Create operator roles
+resource "aws_iam_role" "operator_roles" {
+  for_each = local.operator_roles
+  
+  name = "${var.prefix}-${replace(each.key, "-", "_")}-operator-role"
+  path = var.path
+  
+  assume_role_policy   = data.aws_iam_policy_document.operator_trust_policy[each.key].json
+  max_session_duration = 3600
+  
+  tags = merge(local.common_tags, {
+    Name      = "${var.prefix}-${each.key}-operator-role"
+    Type      = "OperatorRole"
+    Operator  = each.key
+    Namespace = each.value.namespace
+  })
+}
+
+# Custom policies for operator roles (since AWS managed policies may not exist)
+data "aws_iam_policy_document" "cloud_credentials_policy" {
+  statement {
+    effect = "Allow"
+    actions = [
+      "sts:AssumeRole",
+      "sts:TagSession",
+      "sts:GetAccessKeyInfo",
+    ]
+    resources = ["*"]
   }
-  depends_on = [null_resource.setup_operator_roles]
+  
+  statement {
+    effect = "Allow"
+    actions = [
+      "iam:GetRole",
+      "iam:ListRoles",
+      "iam:PassRole",
+    ]
+    resources = [
+      "arn:${local.partition}:iam::${local.account_id}:role/${var.prefix}-*"
+    ]
+  }
+}
+
+data "aws_iam_policy_document" "image_registry_policy" {
+  statement {
+    effect = "Allow"
+    actions = [
+      "s3:CreateBucket",
+      "s3:DeleteBucket",
+      "s3:PutBucketTagging",
+      "s3:GetBucketTagging",
+      "s3:PutBucketPublicAccessBlock",
+      "s3:GetBucketPublicAccessBlock",
+      "s3:PutEncryptionConfiguration",
+      "s3:GetEncryptionConfiguration",
+      "s3:PutBucketPolicy",
+      "s3:GetBucketPolicy",
+      "s3:ListBucket",
+      "s3:GetObject",
+      "s3:PutObject",
+      "s3:DeleteObject",
+    ]
+    resources = [
+      "arn:${local.partition}:s3:::*"
+    ]
+  }
+}
+
+# Apply custom policies
+resource "aws_iam_role_policy" "operator_policies" {
+  for_each = local.operator_roles
+  
+  name = "${var.prefix}-${each.key}-operator-policy"
+  role = aws_iam_role.operator_roles[each.key].id
+  
+  policy = each.key == "cloud-credentials" ? data.aws_iam_policy_document.cloud_credentials_policy.json : (
+    each.key == "image-registry" ? data.aws_iam_policy_document.image_registry_policy.json : 
+    jsonencode({
+      Version = "2012-10-17"
+      Statement = [
+        {
+          Effect = "Allow"
+          Action = [
+            "sts:GetCallerIdentity"
+          ]
+          Resource = "*"
+        }
+      ]
+    })
+  )
 }

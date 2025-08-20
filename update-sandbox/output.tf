@@ -1,137 +1,78 @@
-# outputs.tf - Outputs avec configuration Single AZ
+# outputs.tf - Updated outputs with OpenShift version
 
+# Extract major.minor version for consistent naming
 locals {
-  rosa_cluster_create_command = <<-EOT
-# 🚀 Commande de Création du Cluster ROSA - ${upper(local.deployment_mode)}
-# PREFIX AUTO-GÉNÉRÉ: ${local.auto_generated_prefix}
-# MODE DE DÉPLOIEMENT: ${upper(local.deployment_mode)}
-${var.single_az_deployment ? "# ZONE DE DISPONIBILITÉ: ${var.availability_zone}" : "# DÉPLOIEMENT MULTI-AZ"}
-
-rosa create cluster \
-  --cluster-name="${local.cluster_name}" \
-  --sts \
-  --mode=auto \
-  --yes \
-  --region="${var.aws_region}" \
-  --version="${var.openshift_version}" \
-  --compute-machine-type="${var.compute_machine_type}" \
-  --compute-nodes=${var.compute_replicas} \
-  --machine-cidr="${local.machine_cidr}" \
-  --service-cidr="${local.service_cidr}" \
-  --pod-cidr="${local.pod_cidr}" \
-  --host-prefix=${local.host_prefix} \
-  ${var.single_az_deployment ? "--availability-zones=${var.availability_zone}" : "--multi-az"} \
-  --role-arn="${local.installer_role_arn}" \
-  --support-role-arn="${local.support_role_arn}" \
-  --controlplane-iam-role="${local.controlplane_role_arn}" \
-  --worker-iam-role="${local.worker_role_arn}" \
-  --operator-roles-prefix="${local.auto_generated_prefix}" \
-  --oidc-config-id="${rhcs_rosa_oidc_config.oidc_config.id}" \
-  --tags="Environment=${var.environment},Project=${var.project_name},Owner=${var.owner},CreatedBy=ROSA-CLI,Prefix=${local.auto_generated_prefix},DeploymentMode=${local.deployment_mode}"
-
-EOT
-
-  rosa_post_install_commands = <<-EOT
-# 📋 Commandes Post-Installation - ${upper(local.deployment_mode)}
-
-# Vérifier le statut du cluster
-rosa describe cluster ${local.cluster_name}
-
-# Surveiller l'installation
-rosa logs install -c ${local.cluster_name} --watch
-
-# Créer un admin cluster
-rosa create admin -c ${local.cluster_name}
-
-# Obtenir la console URL
-rosa describe cluster ${local.cluster_name} | grep "Console URL"
-
-# Vérifier les nœuds (Single AZ)
-oc get nodes -o wide
-
-# Vérifier la distribution des pods (Single AZ)
-oc get pods -A -o wide | head -20
-
-EOT
+  openshift_major_minor = join(".", slice(split(".", var.openshift_version), 0, 2))
 }
 
-# Outputs principaux
-output "deployment_configuration" {
-  description = "Configuration de déploiement Single AZ"
+output "account_role_arns" {
+  description = "ARNs of all account roles"
   value = {
-    prefix              = local.auto_generated_prefix
-    cluster_name        = local.cluster_name
-    deployment_mode     = local.deployment_mode
-    availability_zone   = var.single_az_deployment ? var.availability_zone : "multi-az"
-    region              = var.aws_region
-    compute_replicas    = var.compute_replicas
-    machine_type        = var.compute_machine_type
-    generated_at        = timestamp()
+    installer     = aws_iam_role.account_roles["installer"].arn
+    support       = aws_iam_role.account_roles["support"].arn
+    controlplane  = aws_iam_role.account_roles["controlplane"].arn
+    worker        = aws_iam_role.account_roles["worker"].arn
   }
 }
 
-output "single_az_network_config" {
-  description = "Configuration réseau pour Single AZ"
+output "instance_profile_arns" {
+  description = "ARNs of instance profiles"
   value = {
-    machine_cidr      = local.machine_cidr
-    service_cidr      = local.service_cidr
-    pod_cidr          = local.pod_cidr
-    host_prefix       = local.host_prefix
-    availability_zone = var.single_az_deployment ? var.availability_zone : null
-    deployment_mode   = local.deployment_mode
+    controlplane = aws_iam_instance_profile.controlplane_instance_profile.arn
+    worker       = aws_iam_instance_profile.worker_instance_profile.arn
   }
 }
 
-output "account_roles" {
-  description = "ARNs des rôles compte"
-  value = {
-    installer_role    = local.installer_role_arn
-    support_role      = local.support_role_arn
-    controlplane_role = local.controlplane_role_arn
-    worker_role       = local.worker_role_arn
-  }
+output "external_id" {
+  description = "External ID for Red Hat role assumption"
+  value     = random_uuid.external_id.result
+  sensitive = true
 }
 
-output "rosa_cluster_create_command" {
-  description = "Commande complète de création du cluster ROSA Single AZ"
-  value       = local.rosa_cluster_create_command
-}
-
-output "rosa_post_install_commands" {
-  description = "Commandes post-installation pour Single AZ"
-  value       = local.rosa_post_install_commands
-}
-
-output "verification_commands" {
-  description = "Commandes de vérification Single AZ"
+output "rosa_create_cluster_command" {
+  description = "ROSA CLI command to create cluster"
   value = <<-EOT
-# 🔍 Commandes de Vérification - ${upper(local.deployment_mode)}
-# PREFIX AUTO-GÉNÉRÉ: ${local.auto_generated_prefix}
-${var.single_az_deployment ? "# ZONE: ${var.availability_zone}" : "# MODE: Multi-AZ"}
+    rosa create cluster \
+      --cluster-name "${var.prefix}-cluster" \
+      --sts \
+      --role-arn "${aws_iam_role.account_roles["installer"].arn}" \
+      --support-role-arn "${aws_iam_role.account_roles["support"].arn}" \
+      --controlplane-iam-role "${aws_iam_role.account_roles["controlplane"].arn}" \
+      --worker-iam-role "${aws_iam_role.account_roles["worker"].arn}" \
+      --oidc-config-id "${rhcs_rosa_oidc_config.oidc_config.id}" \
+      --operator-roles-prefix "${var.prefix}" \
+      --region "${var.aws_region}" \
+      --version "${var.openshift_version}" \
+      --compute-machine-type m5.xlarge \
+      --replicas 3 \
+      --external-id "${random_uuid.external_id.result}"
+  EOT
+}
 
-# Vérifier la connexion ROSA
-rosa whoami
+output "validation_commands" {
+  description = "Commands to validate the setup"
+  value = <<-EOT
+    # Check all roles exist
+    aws iam get-role --role-name "${aws_iam_role.account_roles["installer"].name}"
+    aws iam get-role --role-name "${aws_iam_role.account_roles["support"].name}"
+    aws iam get-role --role-name "${aws_iam_role.account_roles["controlplane"].name}"
+    aws iam get-role --role-name "${aws_iam_role.account_roles["worker"].name}"
+    
+    # Check instance profiles
+    aws iam get-instance-profile --instance-profile-name "${aws_iam_instance_profile.controlplane_instance_profile.name}"
+    aws iam get-instance-profile --instance-profile-name "${aws_iam_instance_profile.worker_instance_profile.name}"
+    
+    # Check OIDC provider
+    aws iam get-openid-connect-provider --open-id-connect-provider-arn "${aws_iam_openid_connect_provider.rosa_oidc.arn}"
+  EOT
+}
 
-# Lister les rôles compte
-rosa list account-roles --prefix ${local.auto_generated_prefix}
-
-# Lister les rôles opérateur
-rosa list operator-roles --prefix ${local.auto_generated_prefix}
-
-# Vérifier la configuration OIDC
-rosa list oidc-config
-
-# Vérifier les quotas
-rosa verify quota --region ${var.aws_region}
-
-# Vérifier les versions disponibles
-rosa list versions --channel-group stable
-
-# Lire le prefix généré
-cat generated_prefix.txt
-
-# Vérifier l'AZ sélectionnée
-aws ec2 describe-availability-zones --zone-names ${var.availability_zone} --region ${var.aws_region}
-
-EOT
+output "role_names" {
+  description = "Names of created roles for reference"
+  value = {
+    installer     = aws_iam_role.account_roles["installer"].name
+    support       = aws_iam_role.account_roles["support"].name
+    controlplane  = aws_iam_role.account_roles["controlplane"].name
+    worker        = aws_iam_role.account_roles["worker"].name
+  }
 }

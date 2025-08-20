@@ -2,7 +2,7 @@
 
 # Get the latest available OpenShift version if not specified
 locals {
-  # Extract major.minor version for role naming (e.g., "4.16" from "4.16.45")
+  # Extract major.minor version for role naming (e.g., "4.16" from "4.16.0")
   openshift_major_minor = join(".", slice(split(".", var.openshift_version), 0, 2))
   
   # Account role definitions with OpenShift version
@@ -94,11 +94,10 @@ data "aws_iam_policy_document" "account_trust_policies" {
   }
 }
 
-# Create account roles with OpenShift version in name
+# Create account roles with OpenShift version in the name
 resource "aws_iam_role" "account_roles" {
   for_each = local.account_roles
   
-  # Include OpenShift version in role name
   name = "${var.prefix}-${local.openshift_major_minor}-${each.value.name}"
   path = var.path
   
@@ -106,10 +105,10 @@ resource "aws_iam_role" "account_roles" {
   max_session_duration = 3600
   
   tags = merge(local.common_tags, {
-    Name = "${var.prefix}-${local.openshift_major_minor}-${each.value.name}"
-    Type = "AccountRole"
-    Role = each.key
-    OpenShiftVersion = var.openshift_version
+    Name              = "${var.prefix}-${local.openshift_major_minor}-${each.value.name}"
+    Type              = "AccountRole"
+    Role              = each.key
+    OpenShiftVersion  = var.openshift_version
     OpenShiftMajorMinor = local.openshift_major_minor
   })
 }
@@ -179,25 +178,18 @@ data "aws_iam_policy_document" "installer_policy" {
       "ec2:DescribeVpcEndpoints",
       "ec2:DescribeVpcs",
       "ec2:DetachInternetGateway",
+      "ec2:DetachNetworkInterface",
       "ec2:DisassociateAddress",
       "ec2:ModifyInstanceAttribute",
       "ec2:ModifyNetworkInterfaceAttribute",
       "ec2:ModifySubnetAttribute",
       "ec2:ModifyVpcAttribute",
       "ec2:ReleaseAddress",
-      "ec2:ReplaceRoute",
-      "ec2:ReplaceRouteTableAssociation",
       "ec2:RevokeSecurityGroupEgress",
       "ec2:RevokeSecurityGroupIngress",
       "ec2:RunInstances",
-      "ec2:TerminateInstances"
-    ]
-    resources = ["*"]
-  }
-
-  statement {
-    effect = "Allow"
-    actions = [
+      "ec2:TerminateInstances",
+      
       # IAM permissions
       "iam:AddRoleToInstanceProfile",
       "iam:AttachRolePolicy",
@@ -217,17 +209,8 @@ data "aws_iam_policy_document" "installer_policy" {
       "iam:RemoveRoleFromInstanceProfile",
       "iam:TagInstanceProfile",
       "iam:TagRole",
-      "iam:UntagRole"
-    ]
-    resources = [
-      "arn:${local.partition}:iam::${local.account_id}:role/${var.prefix}-*",
-      "arn:${local.partition}:iam::${local.account_id}:instance-profile/${var.prefix}-*"
-    ]
-  }
-
-  statement {
-    effect = "Allow"
-    actions = [
+      "iam:UntagRole",
+      
       # Route53 permissions
       "route53:ChangeResourceRecordSets",
       "route53:CreateHostedZone",
@@ -238,14 +221,8 @@ data "aws_iam_policy_document" "installer_policy" {
       "route53:ListHostedZonesByName",
       "route53:ListResourceRecordSets",
       "route53:ListTagsForResource",
-      "route53:UpdateHostedZoneComment"
-    ]
-    resources = ["*"]
-  }
-
-  statement {
-    effect = "Allow"
-    actions = [
+      "route53:UpdateHostedZoneComment",
+      
       # S3 permissions
       "s3:CreateBucket",
       "s3:DeleteBucket",
@@ -258,17 +235,8 @@ data "aws_iam_policy_document" "installer_policy" {
       "s3:PutBucketAcl",
       "s3:PutBucketTagging",
       "s3:PutObject",
-      "s3:PutObjectAcl"
-    ]
-    resources = [
-      "arn:${local.partition}:s3:::${var.prefix}-*",
-      "arn:${local.partition}:s3:::${var.prefix}-*/*"
-    ]
-  }
-
-  statement {
-    effect = "Allow"
-    actions = [
+      "s3:PutObjectAcl",
+      
       # ELB permissions
       "elasticloadbalancing:AddTags",
       "elasticloadbalancing:ApplySecurityGroupsToLoadBalancer",
@@ -280,20 +248,18 @@ data "aws_iam_policy_document" "installer_policy" {
       "elasticloadbalancing:DeleteListener",
       "elasticloadbalancing:DeleteLoadBalancer",
       "elasticloadbalancing:DeleteTargetGroup",
-      "elasticloadbalancing:DeregisterInstancesFromLoadBalancer",
+      "elasticloadbalancing:DeregisterTargets",
       "elasticloadbalancing:DescribeListeners",
-      "elasticloadbalancing:DescribeLoadBalancerAttributes",
       "elasticloadbalancing:DescribeLoadBalancers",
-      "elasticloadbalancing:DescribeTargetGroupAttributes",
       "elasticloadbalancing:DescribeTargetGroups",
       "elasticloadbalancing:DescribeTargetHealth",
       "elasticloadbalancing:ModifyListener",
       "elasticloadbalancing:ModifyLoadBalancerAttributes",
       "elasticloadbalancing:ModifyTargetGroup",
-      "elasticloadbalancing:ModifyTargetGroupAttributes",
-      "elasticloadbalancing:RegisterInstancesWithLoadBalancer",
       "elasticloadbalancing:RegisterTargets",
-      "elasticloadbalancing:SetLoadBalancerPoliciesOfListener"
+      "elasticloadbalancing:RemoveTags",
+      "elasticloadbalancing:SetSecurityGroups",
+      "elasticloadbalancing:SetSubnets"
     ]
     resources = ["*"]
   }
@@ -306,40 +272,23 @@ data "aws_iam_policy_document" "support_policy" {
     actions = [
       "sts:AssumeRole"
     ]
-    resources = [
-      "arn:${local.partition}:iam::${local.account_id}:role/${var.prefix}-*"
-    ]
+    resources = ["*"]
   }
 }
 
-# Control plane policy
+# Control plane role policy
 data "aws_iam_policy_document" "controlplane_policy" {
   statement {
     effect = "Allow"
     actions = [
       "ec2:AttachVolume",
       "ec2:AuthorizeSecurityGroupIngress",
-      "ec2:CreateRoute",
       "ec2:CreateSecurityGroup",
-      "ec2:CreateSnapshot",
       "ec2:CreateTags",
       "ec2:CreateVolume",
-      "ec2:DeleteRoute",
       "ec2:DeleteSecurityGroup",
-      "ec2:DeleteSnapshot",
-      "ec2:DeleteTags",
       "ec2:DeleteVolume",
-      "ec2:DescribeAccountAttributes",
-      "ec2:DescribeAvailabilityZones",
-      "ec2:DescribeInstances",
-      "ec2:DescribeInstanceTypes",
-      "ec2:DescribeRegions",
-      "ec2:DescribeRouteTables",
-      "ec2:DescribeSecurityGroups",
-      "ec2:DescribeSnapshots",
-      "ec2:DescribeSubnets",
-      "ec2:DescribeTags",
-      "ec2:DescribeVolumes",
+      "ec2:Describe*",
       "ec2:DetachVolume",
       "ec2:ModifyInstanceAttribute",
       "ec2:ModifyVolume",
@@ -350,32 +299,40 @@ data "aws_iam_policy_document" "controlplane_policy" {
       "elasticloadbalancing:CreateListener",
       "elasticloadbalancing:CreateLoadBalancer",
       "elasticloadbalancing:CreateTargetGroup",
+      "elasticloadbalancing:ConfigureHealthCheck",
       "elasticloadbalancing:DeleteListener",
       "elasticloadbalancing:DeleteLoadBalancer",
       "elasticloadbalancing:DeleteTargetGroup",
-      "elasticloadbalancing:DescribeListeners",
-      "elasticloadbalancing:DescribeLoadBalancerAttributes",
-      "elasticloadbalancing:DescribeLoadBalancers",
-      "elasticloadbalancing:DescribeTargetGroupAttributes",
-      "elasticloadbalancing:DescribeTargetGroups",
-      "elasticloadbalancing:DescribeTargetHealth",
+      "elasticloadbalancing:Describe*",
+      "elasticloadbalancing:DetachLoadBalancerFromSubnets",
       "elasticloadbalancing:ModifyListener",
       "elasticloadbalancing:ModifyLoadBalancerAttributes",
       "elasticloadbalancing:ModifyTargetGroup",
-      "elasticloadbalancing:ModifyTargetGroupAttributes",
-      "elasticloadbalancing:RegisterTargets"
+      "elasticloadbalancing:RegisterTargets",
+      "elasticloadbalancing:RemoveTags",
+      "elasticloadbalancing:SetLoadBalancerPoliciesOfListener",
+      "elasticloadbalancing:SetSubnets",
+      "kms:DescribeKey"
     ]
     resources = ["*"]
   }
 }
 
-# Worker node policy
+# Worker role policy
 data "aws_iam_policy_document" "worker_policy" {
   statement {
     effect = "Allow"
     actions = [
       "ec2:DescribeInstances",
-      "ec2:DescribeRegions"
+      "ec2:DescribeRegions",
+      "ecr:GetAuthorizationToken",
+      "ecr:BatchCheckLayerAvailability",
+      "ecr:GetDownloadUrlForLayer",
+      "ecr:GetRepositoryPolicy",
+      "ecr:DescribeRepositories",
+      "ecr:ListImages",
+      "ecr:DescribeImages",
+      "ecr:BatchGetImage"
     ]
     resources = ["*"]
   }
@@ -403,9 +360,9 @@ resource "aws_iam_instance_profile" "controlplane_instance_profile" {
   path = var.path
   
   tags = merge(local.common_tags, {
-    Name = "${var.prefix}-${local.openshift_major_minor}-controlplane-instance-profile"
-    Type = "InstanceProfile"
-    OpenShiftVersion = var.openshift_version
+    Name                = "${var.prefix}-${local.openshift_major_minor}-controlplane-instance-profile"
+    Type                = "InstanceProfile"
+    OpenShiftVersion    = var.openshift_version
     OpenShiftMajorMinor = local.openshift_major_minor
   })
 }
@@ -416,9 +373,9 @@ resource "aws_iam_instance_profile" "worker_instance_profile" {
   path = var.path
   
   tags = merge(local.common_tags, {
-    Name = "${var.prefix}-${local.openshift_major_minor}-worker-instance-profile" 
-    Type = "InstanceProfile"
-    OpenShiftVersion = var.openshift_version
+    Name                = "${var.prefix}-${local.openshift_major_minor}-worker-instance-profile"
+    Type                = "InstanceProfile"
+    OpenShiftVersion    = var.openshift_version
     OpenShiftMajorMinor = local.openshift_major_minor
   })
 }

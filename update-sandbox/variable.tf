@@ -13,13 +13,18 @@ variable "prefix" {
 variable "aws_region" {
   type        = string
   description = "AWS region where ROSA cluster will be deployed"
-  default     = "us-east-2"
+  default     = "us-east-1"
 }
 
 variable "openshift_version" {
   type        = string
   description = "OpenShift version for ROSA cluster"
-  default     = "4.16.45"
+  default     = "4.16.0"  # Updated to 4.16
+  
+  validation {
+    condition     = can(regex("^[0-9]+\\.[0-9]+\\.[0-9]+$", var.openshift_version))
+    error_message = "OpenShift version must be in format x.y.z (e.g., 4.16.0)."
+  }
 }
 
 variable "path" {

@@ -1,10 +1,5 @@
 # outputs.tf - Updated outputs with OpenShift version
 
-# Extract major.minor version for consistent naming
-locals {
-  openshift_major_minor = join(".", slice(split(".", var.openshift_version), 0, 2))
-}
-
 output "account_role_arns" {
   description = "ARNs of all account roles"
   value = {
@@ -74,5 +69,13 @@ output "role_names" {
     support       = aws_iam_role.account_roles["support"].name
     controlplane  = aws_iam_role.account_roles["controlplane"].name
     worker        = aws_iam_role.account_roles["worker"].name
+  }
+}
+
+output "openshift_version_info" {
+  description = "OpenShift version information"
+  value = {
+    full_version = var.openshift_version
+    major_minor  = local.openshift_major_minor
   }
 }
